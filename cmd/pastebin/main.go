@@ -16,6 +16,7 @@ import (
 	"pastebin/internal/config"
 	"pastebin/internal/handler"
 	"pastebin/internal/idgen"
+	"pastebin/internal/logutil"
 	"pastebin/internal/ratelimit"
 	"pastebin/internal/stats"
 	"pastebin/internal/store"
@@ -39,7 +40,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set log level
+	// Parse log config
+	logMaxAge, err := config.ParseDurationWithDays(cfg.Log.MaxAge)
+	if err != nil {
+		logger.Error("failed to parse log.max_age", "error", err)
+		os.Exit(1)
+	}
+	logMaxSize, err := config.ParseSize(cfg.Log.MaxSize)
+	if err != nil {
+		logger.Error("failed to parse log.max_size", "error", err)
+		os.Exit(1)
+	}
+
+	// Set up log handler
 	level := slog.LevelInfo
 	switch cfg.LogLevel {
 	case "debug":
@@ -51,7 +64,23 @@ func main() {
 	case "error":
 		level = slog.LevelError
 	}
-	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+
+	var rotWriter *logutil.RotatingWriter
+	if cfg.Log.Dir != "" {
+		rw, err := logutil.New(cfg.Log.Dir, logutil.RotationMode(cfg.Log.Rotation),
+			logMaxAge, logMaxSize, cfg.Log.MaxBackups)
+		if err != nil {
+			logger.Error("failed to create log writer, falling back to stderr", "error", err)
+		} else {
+			rotWriter = rw
+		}
+	}
+
+	if rotWriter != nil {
+		logger = slog.New(slog.NewTextHandler(rotWriter, &slog.HandlerOptions{Level: level}))
+	} else {
+		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	}
 	slog.SetDefault(logger)
 
 	// Parse TTL rules
@@ -156,6 +185,10 @@ func main() {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("server shutdown error", "error", err)
+	}
+
+	if rotWriter != nil {
+		rotWriter.Close()
 	}
 
 	fmt.Println("server stopped")

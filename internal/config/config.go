@@ -67,6 +67,18 @@ func validate(c *model.Config) error {
 	if c.LogLevel == "" {
 		c.LogLevel = "info"
 	}
+	if c.Log.Rotation == "" {
+		c.Log.Rotation = "time"
+	}
+	if c.Log.MaxAge == "" {
+		c.Log.MaxAge = "7d"
+	}
+	if c.Log.MaxSize == "" {
+		c.Log.MaxSize = "100MB"
+	}
+	if c.Log.MaxBackups <= 0 {
+		c.Log.MaxBackups = 10
+	}
 	return nil
 }
 
@@ -110,7 +122,7 @@ func ParseTTLMap(raw map[string]string) ([]model.TTLRule, error) {
 	var rules []model.TTLRule
 
 	for key, val := range raw {
-		dur, err := parseDurationWithDays(val)
+		dur, err := ParseDurationWithDays(val)
 		if err != nil {
 			return nil, fmt.Errorf("ttl_map key %q: invalid duration %q: %w", key, val, err)
 		}
@@ -174,9 +186,9 @@ func parseTTLRange(key string) (int, int, error) {
 	return n, n, nil
 }
 
-// parseDurationWithDays parses a duration string that may include "d" for days.
+// ParseDurationWithDays parses a duration string that may include "d" for days.
 // Go's time.ParseDuration doesn't support days, so we convert them to hours.
-func parseDurationWithDays(s string) (time.Duration, error) {
+func ParseDurationWithDays(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)
 
 	// Handle simple case: no days
@@ -226,4 +238,49 @@ func TTLForLength(rules []model.TTLRule, length int) time.Duration {
 		return rules[len(rules)-1].TTL.Duration
 	}
 	return 24 * time.Hour // sensible default
+}
+
+// ParseSize parses a human-readable size string like "100MB", "1GB", "500KB"
+// and returns the size in bytes.
+func ParseSize(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty size string")
+	}
+
+	// Find the boundary between digits and unit
+	var numPart, unitPart string
+	for i, c := range s {
+		if c < '0' || c > '9' {
+			numPart = s[:i]
+			unitPart = strings.ToUpper(strings.TrimSpace(s[i:]))
+			break
+		}
+	}
+	if numPart == "" {
+		return 0, fmt.Errorf("invalid size %q: no numeric part", s)
+	}
+
+	val, err := strconv.ParseInt(numPart, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q: %w", s, err)
+	}
+
+	var multiplier int64 = 1
+	switch unitPart {
+	case "B", "":
+		multiplier = 1
+	case "KB":
+		multiplier = 1024
+	case "MB":
+		multiplier = 1024 * 1024
+	case "GB":
+		multiplier = 1024 * 1024 * 1024
+	case "TB":
+		multiplier = 1024 * 1024 * 1024 * 1024
+	default:
+		return 0, fmt.Errorf("invalid size %q: unknown unit %q", s, unitPart)
+	}
+
+	return val * multiplier, nil
 }

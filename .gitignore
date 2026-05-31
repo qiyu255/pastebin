@@ -2,7 +2,7 @@
 /pastebin
 /passwd
 *.db*
-log/
+logs/
 tmp/
 *.local
 

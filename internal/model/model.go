@@ -40,6 +40,7 @@ type Config struct {
 	StatsInterval       string            `json:"stats_interval"`
 	RateLimit           RateLimitConfig   `json:"rate_limit"`
 	LogLevel            string            `json:"log_level"`
+	Log                 LogConfig         `json:"log"`
 }
 
 // ParsedTimer holds a parsed timer interval with optional jitter.
@@ -72,6 +73,15 @@ type WindowConfig struct {
 	MaxRequests int64    `json:"max_requests"`
 	MaxBytes    int64    `json:"max_bytes,omitempty"`
 	MaxUsage    int64    `json:"max_usage,omitempty"`
+}
+
+// LogConfig holds log file rotation settings.
+type LogConfig struct {
+	Dir        string `json:"dir"`         // log directory, empty = stderr
+	Rotation   string `json:"rotation"`    // "time" or "size"
+	MaxAge     string `json:"max_age"`     // e.g. "7d"
+	MaxSize    string `json:"max_size"`    // e.g. "100MB"
+	MaxBackups int    `json:"max_backups"` // max old files for size rotation
 }
 
 // Stats holds a cached statistics report.
