@@ -1,0 +1,36 @@
+{
+  "listen": ":8080",
+  "behind_proxy": false,
+  "admin_key_hash": "$2a$12$K2dqJpy6H6wnwha5IFcjy.nhkjSx3lCV/eywnZvnvVyEy4elERo/W",
+  "db_path": "pastebin.db",
+  "db_max_size": 1073741824,
+  "db_size_check_interval": "5m+30s",
+  "cleanup_interval": "10m+60s",
+  "max_paste_size": 10485760,
+  "multipart_overhead": 4096,
+  "id_min_length": 1,
+  "id_max_length": 64,
+  "id_charset": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "id_init_length": 4,
+  "id_max_collisions": 10,
+  "ttl_map": {
+    "1": "1h",
+    "2-3": "1d",
+    "4-8": "30d",
+    "9+": "365d"
+  },
+  "stats_interval": "1m+10s",
+  "rate_limit": {
+    "read": {
+      "windows": [
+        {"duration": "1m", "max_requests": 100}
+      ]
+    },
+    "write": {
+      "windows": [
+        {"duration": "1m", "max_requests": 10, "max_bytes": 1048576, "max_usage": 5242880}
+      ]
+    }
+  },
+  "log_level": "info"
+}
