@@ -64,13 +64,17 @@ func generateRequestID() string {
 }
 
 // Middleware is the top-level middleware. It handles concurrency limiting,
-// request ID generation, separate request/response logging, and timing.
+// request ID generation, separate request/response logging, timing,
+// and request timeout.
 func Middleware(logger *slog.Logger, cfg *model.Config) func(http.Handler) http.Handler {
 	// Create semaphore for concurrency limiting
 	var sem chan struct{}
 	if cfg.MaxConcurrentRequests > 0 {
 		sem = make(chan struct{}, cfg.MaxConcurrentRequests)
 	}
+
+	// Parse request timeout
+	timeout, _ := time.ParseDuration(cfg.RequestTimeout)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +114,39 @@ func Middleware(logger *slog.Logger, cfg *model.Config) func(http.Handler) http.
 				start:          start,
 			}
 
-			next.ServeHTTP(rw, r)
+			// Apply request timeout
+			if timeout > 0 {
+				ctx, cancel := context.WithTimeout(r.Context(), timeout)
+				defer cancel()
+				r = r.WithContext(ctx)
+
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					next.ServeHTTP(rw, r)
+				}()
+
+				select {
+				case <-done:
+					// Handler completed within timeout
+				case <-ctx.Done():
+					// Timeout fired — return 500 to abort the request
+					if !rw.wroteHeader {
+						writeText(w, http.StatusInternalServerError, "request timeout")
+					}
+					elapsed := time.Since(start)
+					logger.Info("response",
+						"req_id", reqID,
+						"status", http.StatusInternalServerError,
+						"resp_size", 0,
+						"elapsed", elapsed,
+						"timeout", true,
+					)
+					return
+				}
+			} else {
+				next.ServeHTTP(rw, r)
+			}
 
 			elapsed := time.Since(start)
 

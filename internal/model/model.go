@@ -39,6 +39,7 @@ type Config struct {
 	TTLMap              map[string]string `json:"ttl_map"`
 	StatsInterval       string            `json:"stats_interval"`
 	MaxConcurrentRequests int               `json:"max_concurrent_requests"`
+	RequestTimeout        string            `json:"request_timeout"`
 	RateLimit             RateLimitConfig   `json:"rate_limit"`
 	LogLevel              string            `json:"log_level"`
 	Log                   LogConfig         `json:"log"`

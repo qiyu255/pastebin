@@ -82,6 +82,9 @@ func validate(c *model.Config) error {
 	if c.MaxConcurrentRequests <= 0 {
 		c.MaxConcurrentRequests = 0 // 0 means unlimited
 	}
+	if c.RequestTimeout == "" {
+		c.RequestTimeout = "0s" // 0 means no timeout
+	}
 	return nil
 }
 
