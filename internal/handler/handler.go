@@ -28,6 +28,7 @@ type Handler struct {
 	limiter     *ratelimit.Limiter
 	reporter    *stats.Reporter
 	helpText    string
+	indexHTML   string
 	logger      *slog.Logger
 	requestSize int64 // max_paste_size + multipart_overhead
 }
@@ -41,6 +42,7 @@ func New(
 	limiter *ratelimit.Limiter,
 	reporter *stats.Reporter,
 	helpText string,
+	indexHTML string,
 	logger *slog.Logger,
 ) *Handler {
 	return &Handler{
@@ -51,6 +53,7 @@ func New(
 		limiter:     limiter,
 		reporter:    reporter,
 		helpText:    helpText,
+		indexHTML:   indexHTML,
 		logger:      logger,
 		requestSize: cfg.MaxPasteSize + cfg.MultipartOverhead,
 	}
@@ -73,7 +76,7 @@ func (h *Handler) Mux() http.Handler {
 	return mux
 }
 
-// handleGetRoot handles GET / (help text or stats).
+// handleGetRoot handles GET / (help text, stats, or index page).
 func (h *Handler) handleGetRoot(w http.ResponseWriter, r *http.Request) {
 	ip := clientIP(r, h.cfg.BehindProxy)
 
@@ -83,8 +86,28 @@ func (h *Handler) handleGetRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Browser requests: return index.html
+	if strings.HasPrefix(r.UserAgent(), "Mozilla") && h.indexHTML != "" {
+		respSize := int64(len(h.indexHTML))
+
+		// Rate limit (read)
+		if !h.limiter.Allow(ip, true, respSize, 0) {
+			writeText(w, http.StatusTooManyRequests, "rate limit exceeded")
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(h.indexHTML))
+		return
+	}
+
+	// CLI / non-browser requests: return help text
+	respSize := int64(len(h.helpText))
+
 	// Rate limit (read)
-	if !h.limiter.Allow(ip, true, int64(len(h.helpText)), 0) {
+	if !h.limiter.Allow(ip, true, respSize, 0) {
 		writeText(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}

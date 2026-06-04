@@ -1,13 +1,16 @@
-Pastebin - a simple pastebin service
+
+Pastebin service
 
 Usage:
-  GET  /                    Show this help text
-  GET  /:id                 Retrieve a paste
-  POST /                    Create a new paste (random ID)
-  POST /:id                 Create or overwrite a paste
-  DELETE /:id               Delete a paste
-  PUT  /:id?action=lock     Lock a paste (admin only)
-  PUT  /:id?action=unlock   Unlock a paste (admin only)
-  GET  /?action=stats       Show server statistics
 
-All responses are plain text (Content-Type: text/plain).
+  GET  /:id       Retrieve a paste
+  POST /          Create a new paste
+  POST /:id       Create or overwrite a paste
+  DELETE /:id     Delete a paste
+
+Example:
+
+  cat hello.txt | curl example.com/hello
+
+  curl example.com/hello -F file=@hello.txt
+

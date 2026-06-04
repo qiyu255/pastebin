@@ -38,9 +38,10 @@ type Config struct {
 	IDMaxCollisions     int               `json:"id_max_collisions"`
 	TTLMap              map[string]string `json:"ttl_map"`
 	StatsInterval       string            `json:"stats_interval"`
-	RateLimit           RateLimitConfig   `json:"rate_limit"`
-	LogLevel            string            `json:"log_level"`
-	Log                 LogConfig         `json:"log"`
+	MaxConcurrentRequests int               `json:"max_concurrent_requests"`
+	RateLimit             RateLimitConfig   `json:"rate_limit"`
+	LogLevel              string            `json:"log_level"`
+	Log                   LogConfig         `json:"log"`
 }
 
 // ParsedTimer holds a parsed timer interval with optional jitter.

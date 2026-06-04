@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -141,16 +142,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Read index.html (optional)
+	var indexHTML string
+	indexData, err := os.ReadFile("index.html")
+	if err != nil {
+		logger.Warn("index.html not found, browser requests will get help text", "error", err)
+	} else {
+		indexHTML = string(indexData)
+		logger.Info("index.html loaded", "size", len(indexData))
+	}
+
 	// Create handler
-	h := handler.New(s, gen, cfg, ttlRules, limiter, reporter, string(helpText), logger)
+	h := handler.New(s, gen, cfg, ttlRules, limiter, reporter, string(helpText), indexHTML, logger)
 	mux := h.Mux()
 
-	// Wrap with logging middleware
-	wrappedMux := handler.LoggingMiddleware(logger, cfg.BehindProxy)(mux)
+	// Wrap with middleware (logging, request ID, concurrency limit, timing)
+	wrappedMux := handler.Middleware(logger, cfg)(mux)
 
 	// Create HTTP server
 	srv := &http.Server{
-		Addr:         cfg.Listen,
 		Handler:      wrappedMux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -164,11 +174,21 @@ func main() {
 		logger.Warn("no admin key configured, admin endpoints will accept no one")
 	}
 
+	// Bind listener first to ensure port is available before printing "ready"
+	ln, err := net.Listen("tcp", cfg.Listen)
+	if err != nil {
+		logger.Error("failed to listen", "listen", cfg.Listen, "error", err)
+		fmt.Fprintf(os.Stderr, "failed to listen on %s: %v\n", cfg.Listen, err)
+		os.Exit(1)
+	}
+
 	// Start server in background
 	go func() {
 		logger.Info("server starting", "listen", cfg.Listen)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		fmt.Printf("ready on %s\n", cfg.Listen)
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", "error", err)
+			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 			os.Exit(1)
 		}
 	}()

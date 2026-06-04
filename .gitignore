@@ -1,10 +1,13 @@
 
 /pastebin
 /passwd
+bin/
 *.db*
 logs/
 tmp/
 *.local
+*.swp
+*.swo
 
 # Created by https://www.toptal.com/developers/gitignore/api/go
 # Edit at https://www.toptal.com/developers/gitignore?templates=go

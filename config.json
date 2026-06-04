@@ -7,6 +7,7 @@
   "db_size_check_interval": "5m+30s",
   "cleanup_interval": "10m+60s",
   "max_paste_size": 10485760,
+  "max_concurrent_requests": 100,
   "multipart_overhead": 4096,
   "id_min_length": 1,
   "id_max_length": 64,

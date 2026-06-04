@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pastebin</title>
+    <link rel="stylesheet" href="https://cdn.staticfile.net/highlight.js/11.9.0/styles/base16/gruvbox-dark-hard.min.css">
+    <script src="https://cdn.staticfile.net/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.staticfile.net/marked/12.0.2/marked.min.js"></script>
+    <style>
+        :root {
+            --bg_h: #1d2021;
+            --bg:   #282828;
+            --bg_s: #32302f;
+            --bg1:  #3c3836;
+            --bg2:  #504945;
+            --bg3:  #665c54;
+            --bg4:  #7c6f64;
+            --fg:  #fbf1c7;
+            --fg1: #ebdbb2;
+            --fg2: #d5c4a1;
+            --fg3: #bdae93;
+            --fg4: #a89984;
+            --red:    #fb4934;
+            --green:  #b8bb26;
+            --yellow: #fabd2f;
+            --blue:   #83a598;
+            --purple: #d3869b;
+            --aqua:   #8ec07c;
+            --gray:   #928374;
+            --orange: #fe8019;
+            --red-dim:    #cc2412;
+            --green-dim:  #98971a;
+            --yellow-dim: #d79921;
+            --blue-dim:   #458588;
+            --purple-dim: #b16286;
+            --aqua-dim:   #689d6a;
+            --gray-dim:   #a89984;
+            --orange-dim: #d65d0e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg_h);
+            color: var(--fg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--bg1);
+            flex-shrink: 0;
+            min-height: 40px;
+        }
+
+        .toolbar-left, .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: none;
+            border: none;
+            color: var(--fg3);
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: color 0.15s;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            color: var(--fg);
+        }
+
+        .btn.active {
+            color: var(--fg);
+        }
+
+        .btn:disabled {
+            color: var(--bg3);
+            cursor: not-allowed;
+        }
+
+        .separator {
+            width: 1px;
+            height: 16px;
+            background: var(--bg2);
+            margin: 0 4px;
+        }
+
+        .status {
+            color: var(--fg4);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .status.error {
+            color: var(--red);
+        }
+
+        .status.success {
+            color: var(--green);
+        }
+
+        /* Content area */
+        .content-wrapper {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        .editor, .viewer {
+            width: 100%;
+            min-height: 100%;
+            padding: 12px;
+            background: var(--bg_h);
+            border: none;
+            outline: none;
+            color: var(--fg);
+            font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",'Source Han Sans VF', Roboto, 'Microsoft YaHei', "Microsoft YaHei", monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            white-space: pre;
+            overflow-wrap: normal;
+            /* overflow-x: hidden; */
+        }
+
+        .editor.wrap {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-x: hidden;
+        }
+
+        .viewer {
+            white-space: normal;
+            word-wrap: break-word;
+            word-break: break-word;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto,'Source Han Sans VF',Ubuntu, Cantarell, "Noto Sans", sans-serif, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        }
+
+        .viewer a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+
+        .viewer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Markdown elements */
+        .viewer p {
+            margin: 8px 0;
+        }
+
+        .viewer h1, .viewer h2, .viewer h3, .viewer h4, .viewer h5, .viewer h6 {
+            margin: 16px 0 8px 0;
+            color: var(--yellow);
+            line-height: 1.4;
+        }
+
+        .viewer h1 { font-size: 1.6em; }
+        .viewer h2 { font-size: 1.4em; }
+        .viewer h3 { font-size: 1.2em; }
+        .viewer h4 { font-size: 1.1em; }
+        .viewer h5 { font-size: 1em; }
+        .viewer h6 { font-size: 0.9em; }
+
+        .viewer ul, .viewer ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .viewer blockquote {
+            border-left: 3px solid var(--bg3);
+            padding-left: 12px;
+            margin: 8px 0;
+            color: var(--fg3);
+        }
+
+        .viewer hr {
+            border: none;
+            border-top: 1px solid var(--bg2);
+            margin: 16px 0;
+        }
+
+        /* Table */
+        .viewer .table-wrap {
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid var(--bg2);
+        }
+
+        .viewer table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 100%;
+        }
+
+        .viewer th, .viewer td {
+            border: 1px solid var(--bg2);
+            padding: 6px 10px;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .viewer th {
+            background: var(--bg1);
+            font-weight: 600;
+        }
+
+        .viewer tr:nth-child(even) td {
+            background: rgba(60, 56, 54, 0.3);
+        }
+
+        /* Image */
+        .viewer .img-wrap {
+            margin: 8px 0;
+            text-align: center;
+        }
+
+        .viewer img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* Code block */
+        .viewer .code-block {
+            margin: 8px 0;
+            border: 1px solid var(--bg2);
+            background: var(--bg);
+        }
+
+        .viewer .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 8px;
+            background: var(--bg1);
+            border-bottom: 1px solid var(--bg2);
+            font-size: 12px;
+            color: var(--fg4);
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+        }
+
+        .viewer .code-lang {
+            text-transform: lowercase;
+        }
+
+        .viewer .code-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .viewer .code-btn {
+            background: none;
+            border: none;
+            color: var(--fg4);
+            cursor: pointer;
+            font-size: 12px;
+            font-family: inherit;
+            padding: 2px 4px;
+            transition: color 0.15s;
+        }
+
+        .viewer .code-btn:hover {
+            color: var(--fg);
+        }
+
+        .viewer .code-body {
+            overflow-x: auto;
+            padding: 12px;
+        }
+
+        .viewer .code-body.wrap pre {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .viewer .code-body.wrap code {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .viewer .code-body pre {
+            margin: 0;
+            padding: 0;
+            background: none;
+            overflow: visible;
+        }
+
+        .viewer .code-body code {
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            background: none;
+            padding: 0;
+        }
+
+        /* Inline code */
+        .viewer code:not(.code-body code) {
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+            font-size: 0.9em;
+            background: var(--bg);
+            padding: 1px 4px;
+            border-radius: 2px;
+            color: var(--aqua);
+        }
+
+        /* Password dialog */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .dialog-overlay.show {
+            display: flex;
+        }
+
+        .dialog {
+            background: var(--bg);
+            border: 1px solid var(--bg2);
+            padding: 16px;
+            min-width: 280px;
+            max-width: 90vw;
+        }
+
+        .dialog-title {
+            color: var(--fg1);
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .dialog-input {
+            width: 100%;
+            background: var(--bg_h);
+            border: 1px solid var(--bg2);
+            color: var(--fg);
+            padding: 8px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            margin-bottom: 12px;
+            outline: none;
+        }
+
+        .dialog-input:focus {
+            border-color: var(--blue);
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .dialog-btn {
+            background: none;
+            border: none;
+            color: var(--fg3);
+            cursor: pointer;
+            padding: 4px 10px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .dialog-btn:hover {
+            color: var(--fg);
+        }
+
+        .dialog-btn.primary {
+            color: var(--blue);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body {
+                font-size: 13px;
+            }
+            .toolbar {
+                padding: 6px 8px;
+            }
+            .btn {
+                font-size: 12px;
+                padding: 3px 6px;
+            }
+            .editor, .viewer {
+                padding: 8px;
+                font-size: 13px;
+            }
+            .status {
+                font-size: 11px;
+            }
+            .viewer .code-header {
+                font-size: 11px;
+            }
+            .viewer .code-body {
+                padding: 8px;
+            }
+            .viewer .code-body code {
+                font-size: 12px;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .editor, .viewer {
+                padding: 16px 24px;
+                font-size: 15px;
+            }
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <button class="btn" id="btn-new">新建</button>
+            <button class="btn" id="btn-edit">编辑</button>
+            <!-- <div class="separator"></div> -->
+            <button class="btn" id="btn-wrap">换行</button>
+            <!-- <div class="separator"></div> -->
+            <button class="btn" id="btn-pwd">密码</button>
+            <button class="btn" id="btn-save">保存</button>
+        </div>
+        <div class="toolbar-right">
+            <span class="status" id="status-save">就绪</span>
+            <div class="separator"></div>
+            <span class="status" id="status-len">0 字符</span>
+        </div>
+    </div>
+
+    <div class="content-wrapper">
+        <textarea class="editor wrap" id="editor" spellcheck="false"></textarea>
+        <div class="viewer hidden" id="viewer"></div>
+    </div>
+
+    <div class="dialog-overlay" id="dialog-overlay">
+        <div class="dialog">
+            <div class="dialog-title" id="dialog-title">密码</div>
+            <input type="password" class="dialog-input" id="dialog-input" placeholder="输入密码...">
+            <div class="dialog-buttons">
+                <button class="dialog-btn" id="btn-dialog-close">关闭</button>
+                <button class="dialog-btn primary" id="btn-dialog-action"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== Configuration ====================
+        const CONFIG = {
+            API_ENDPOINT: "",
+            AUTO_SAVE_INTERVAL: 3000,
+        };
+
+        // ==================== State ====================
+        let state = {
+            id: "",
+            flags: "",
+            content: "",
+            password: "",
+            isEditing: false,
+            isEncrypted: false,
+            lastSavedContent: "",
+            lastSavedAt: null,
+            autoSaveTimer: null,
+            statusUpdateTimer: null,
+            pendingSave: false,
+            wrapEnabled: true,
+        };
+
+        // ==================== DOM Elements ====================
+        const $ = id => document.getElementById(id);
+        const editor = $("editor");
+        const viewer = $("viewer");
+        const btnNew = $("btn-new");
+        const btnEdit = $("btn-edit");
+        const btnWrap = $("btn-wrap");
+        const btnPwd = $("btn-pwd");
+        const btnSave = $("btn-save");
+        const statusSave = $("status-save");
+        const statusLen = $("status-len");
+        const dialogOverlay = $("dialog-overlay");
+        const dialogTitle = $("dialog-title");
+        const dialogInput = $("dialog-input");
+        const btnDialogClose = $("btn-dialog-close");
+        const btnDialogAction = $("btn-dialog-action");
+
+        // ==================== Utilities ====================
+        function genId() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let id = "";
+            for (let i = 0; i < 8; i++) {
+                id += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return id;
+        }
+
+        function parseHash() {
+            const hash = window.location.hash.slice(1);
+            if (!hash) return { flags: "", id: "" };
+            const parts = hash.split("/");
+            if (parts.length >= 2) {
+                return { flags: parts[0], id: parts[1] };
+            }
+            return { flags: "", id: hash };
+        }
+
+        function buildHash(flags, id) {
+            if (flags && id) return `#${flags}/${id}`;
+            if (id) return `#/${id}`;
+            return "";
+        }
+
+        function updateHash(flags, id) {
+            const hash = buildHash(flags, id);
+            if (hash !== window.location.hash) {
+                window.location.hash = hash;
+            }
+        }
+
+        function normalizeText(text) {
+            return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        }
+
+        function formatTimeAgo(date) {
+            if (!date) return "";
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            if (diff < 60) return `${diff}秒前`;
+            if (diff < 3600) return `${Math.floor(diff / 60)}分前`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}时前`;
+            return `${Math.floor(diff / 86400)}天前`;
+        }
+
+        function updateTitle() {
+            document.title = state.id ? `${state.id} - Pastebin` : "Pastebin";
+        }
+
+        function updateStatus() {
+            const len = state.content.length;
+            statusLen.textContent = `${len} 字符`;
+
+            if (state.pendingSave) {
+                statusSave.textContent = "上传中...";
+                statusSave.className = "status";
+                return;
+            }
+
+            if (state.lastSavedAt) {
+                const ago = formatTimeAgo(state.lastSavedAt);
+                statusSave.textContent = `已保存 ${ago}`;
+                statusSave.className = "status success";
+            } else {
+                statusSave.textContent = "就绪";
+                statusSave.className = "status";
+            }
+        }
+
+        function startStatusTimer() {
+            if (state.statusUpdateTimer) clearInterval(state.statusUpdateTimer);
+            state.statusUpdateTimer = setInterval(() => {
+                if (state.lastSavedAt && !state.pendingSave) {
+                    const ago = formatTimeAgo(state.lastSavedAt);
+                    statusSave.textContent = `已保存 ${ago}`;
+                }
+            }, 1000);
+        }
+
+        // ==================== Crypto ====================
+        const CHECK_BYTES = 8;
+        const SALT_BYTES = 16;
+        const IV_BYTES = 12;
+        const TAG_BYTES = 16;
+
+        async function deriveKey(password, salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
+            );
+            return crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                false,
+                ["encrypt", "decrypt"]
+            );
+        }
+
+        async function encryptData(plaintext, password) {
+            const enc = new TextEncoder();
+            const data = enc.encode(plaintext);
+            const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+            const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+            const key = await deriveKey(password, salt);
+            const ciphertext = await crypto.subtle.encrypt(
+                { name: "AES-GCM", iv },
+                key,
+                data
+            );
+            const ct = new Uint8Array(ciphertext);
+            const len = new Uint8Array(4);
+            new DataView(len.buffer).setUint32(0, data.length, false);
+            const check = new Uint8Array(CHECK_BYTES);
+            const hash = await crypto.subtle.digest("SHA-256", data);
+            check.set(new Uint8Array(hash).slice(0, CHECK_BYTES));
+            const totalLen = 4 + CHECK_BYTES + SALT_BYTES + IV_BYTES + ct.length;
+            const result = new Uint8Array(totalLen);
+            let offset = 0;
+            result.set(len, offset); offset += 4;
+            result.set(check, offset); offset += CHECK_BYTES;
+            result.set(salt, offset); offset += SALT_BYTES;
+            result.set(iv, offset); offset += IV_BYTES;
+            result.set(ct, offset);
+            return result;
+        }
+
+        async function decryptData(encrypted, password) {
+            if (encrypted.length < 4 + CHECK_BYTES + SALT_BYTES + IV_BYTES + TAG_BYTES) {
+                throw new Error("数据太短");
+            }
+            let offset = 0;
+            const lenView = new DataView(encrypted.buffer, encrypted.byteOffset + offset, 4);
+            const plaintextLen = lenView.getUint32(0, false);
+            offset += 4;
+            const check = encrypted.slice(offset, offset + CHECK_BYTES);
+            offset += CHECK_BYTES;
+            const salt = encrypted.slice(offset, offset + SALT_BYTES);
+            offset += SALT_BYTES;
+            const iv = encrypted.slice(offset, offset + IV_BYTES);
+            offset += IV_BYTES;
+            const ct = encrypted.slice(offset);
+            const key = await deriveKey(password, salt);
+            const decrypted = await crypto.subtle.decrypt(
+                { name: "AES-GCM", iv },
+                key,
+                ct
+            );
+            const decArray = new Uint8Array(decrypted);
+            const hash = await crypto.subtle.digest("SHA-256", decArray);
+            const expectedCheck = new Uint8Array(hash).slice(0, CHECK_BYTES);
+            let match = true;
+            for (let i = 0; i < CHECK_BYTES; i++) {
+                if (check[i] !== expectedCheck[i]) { match = false; break; }
+            }
+            if (!match) throw new Error("密码错误或数据损坏");
+            const result = decArray.slice(0, plaintextLen);
+            const dec = new TextDecoder();
+            return dec.decode(result);
+        }
+
+        // ==================== API ====================
+        function apiUrl(path) {
+            const base = CONFIG.API_ENDPOINT.replace(/\/$/, "");
+            return base + path;
+        }
+
+        async function apiGet(id) {
+            const resp = await fetch(apiUrl("/" + id), {
+                headers: { "Accept": "text/plain" }
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const blob = await resp.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            return new Uint8Array(arrayBuffer);
+        }
+
+        async function apiPost(id, data, isBinary = false) {
+            const url = id ? apiUrl("/" + id) : apiUrl("/");
+            const resp = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: isBinary ? data : data,
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            if (!id) {
+                const text = await resp.text();
+                return text.trim();
+            }
+            return id;
+        }
+
+        // ==================== Custom Marked Renderer ====================
+        const customRenderer = new marked.Renderer();
+
+        customRenderer.table = function(header, body) {
+            return `<div class="table-wrap"><table><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+        };
+
+        customRenderer.image = function(href, title, text) {
+            const titleAttr = title ? ` title="${title}"` : "";
+            return `<div class="img-wrap"><img src="${href}" alt="${text}"${titleAttr} loading="lazy"></div>`;
+        };
+
+        customRenderer.code = function(code, language) {
+            const lang = language || "";
+            const id = "cb-" + Math.random().toString(36).slice(2, 9);
+            return `<div class="code-block">
+                <div class="code-header">
+                    <span class="code-lang">${lang || "text"}</span>
+                    <div class="code-actions">
+                        <button class="code-btn" data-action="wrap" data-target="${id}">折行</button>
+                        <button class="code-btn" data-action="copy" data-target="${id}">复制</button>
+                    </div>
+                </div>
+                <div class="code-body" id="${id}"><pre><code class="hljs language-${lang}">${marked.parseInline(code)}</code></pre></div>
+            </div>`;
+        };
+
+        // ==================== View Logic ====================
+        function isReadMode() {
+            return state.flags.includes("r");
+        }
+
+        function isMarkdown() {
+            return state.id.endsWith(".md");
+        }
+
+        function hasAutoRedirect() {
+            return state.flags.includes("t");
+        }
+
+        function hasPasswordFlag() {
+            return state.flags.includes("p");
+        }
+
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        }
+
+        function renderPlainText(text) {
+            const escaped = escapeHtml(text);
+            const urlRegex = /https?:\/\/[^\s]+/g;
+            return escaped.replace(urlRegex, url => {
+                return `<a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+            }).replace(/\n/g, "<br>");
+        }
+
+        function renderViewer() {
+            const text = state.content;
+            if (isMarkdown()) {
+                viewer.innerHTML = marked.parse(text, { renderer: customRenderer });
+                viewer.querySelectorAll(".code-body code").forEach(block => {
+                    hljs.highlightElement(block);
+                });
+            } else {
+                viewer.innerHTML = renderPlainText(text);
+            }
+
+            if (hasAutoRedirect()) {
+                const match = text.match(/https?:\/\/[^\s]+/);
+                if (match) {
+                    window.location.href = match[0];
+                }
+            }
+        }
+
+        function setMode(editing) {
+            state.isEditing = editing;
+            if (editing) {
+                editor.classList.remove("hidden");
+                viewer.classList.add("hidden");
+                editor.value = state.content;
+                editor.focus();
+                btnEdit.textContent = "阅读";
+            } else {
+                editor.classList.add("hidden");
+                viewer.classList.remove("hidden");
+                renderViewer();
+                btnEdit.textContent = "编辑";
+            }
+            updateStatus();
+        }
+
+        function updateWrapUI() {
+            if (state.wrapEnabled) {
+                editor.classList.add("wrap");
+                btnWrap.classList.add("active");
+                // btnWrap.textContent = "换行";
+            } else {
+                editor.classList.remove("wrap");
+                btnWrap.classList.remove("active");
+                // btnWrap.textContent = "不换行";
+            }
+        }
+
+        function toggleWrap() {
+            state.wrapEnabled = !state.wrapEnabled;
+            updateWrapUI();
+            if (state.isEditing) editor.focus();
+        }
+
+        // ==================== Code Block Actions ====================
+        viewer.addEventListener("click", function(e) {
+            const btn = e.target.closest(".code-btn");
+            if (!btn) return;
+            const action = btn.dataset.action;
+            const targetId = btn.dataset.target;
+            if (!action || !targetId) return;
+            e.preventDefault();
+
+            if (action === "wrap") {
+                const body = document.getElementById(targetId);
+                if (body) {
+                    body.classList.toggle("wrap");
+                    btn.textContent = body.classList.contains("wrap") ? "不折行" : "折行";
+                }
+            } else if (action === "copy") {
+                const body = document.getElementById(targetId);
+                if (!body) return;
+                const code = body.querySelector("code");
+                if (!code) return;
+                const text = code.textContent;
+                const doCopy = () => {
+                    const orig = btn.textContent;
+                    btn.textContent = "已复制";
+                    setTimeout(() => btn.textContent = orig, 1500);
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(doCopy).catch(() => {
+                        fallbackCopy(text, doCopy);
+                    });
+                } else {
+                    fallbackCopy(text, doCopy);
+                }
+            }
+        });
+
+        function fallbackCopy(text, callback) {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            textarea.style.pointerEvents = "none";
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand("copy");
+                callback();
+            } catch (e) {}
+            document.body.removeChild(textarea);
+        }
+
+        // ==================== Load / Save ====================
+        async function loadPaste() {
+            if (!state.id) return;
+            try {
+                statusSave.textContent = "加载中...";
+                statusSave.className = "status";
+                const data = await apiGet(state.id);
+                let text = "";
+                if (hasPasswordFlag()) {
+                    if (!state.password) {
+                        state.isEncrypted = true;
+                        showDialog("decrypt");
+                        statusSave.textContent = "需要密码";
+                        return;
+                    }
+                    try {
+                        text = await decryptData(data, state.password);
+                        state.isEncrypted = false;
+                    } catch (e) {
+                        state.password = "";
+                        statusSave.textContent = "解密失败: " + e.message;
+                        statusSave.className = "status error";
+                        showDialog("decrypt");
+                        return;
+                    }
+                } else {
+                    const dec = new TextDecoder();
+                    text = dec.decode(data);
+                }
+                text = normalizeText(text);
+                state.content = text;
+                state.lastSavedContent = text;
+                state.lastSavedAt = null;
+                state.pendingSave = false;
+                editor.value = text;
+                updateTitle();
+                if (!isReadMode()) {
+                    setMode(true);
+                } else {
+                    setMode(false);
+                }
+                updateStatus();
+            } catch (e) {
+                statusSave.textContent = "加载失败: " + e.message;
+                statusSave.className = "status error";
+                state.content = "";
+                state.lastSavedContent = "";
+                state.lastSavedAt = null;
+                state.pendingSave = false;
+                updateTitle();
+                setMode(true);
+                updateStatus();
+            }
+        }
+
+        async function doSave() {
+            const rawText = state.isEditing ? editor.value : state.content;
+            const text = normalizeText(rawText);
+            if (text === state.lastSavedContent && state.lastSavedAt) {
+                state.pendingSave = false;
+                updateStatus();
+                return;
+            }
+
+            try {
+                statusSave.textContent = "上传中...";
+                statusSave.className = "status";
+                let data = text;
+                let isBinary = false;
+                let flags = state.flags;
+
+                if (state.password) {
+                    const encrypted = await encryptData(text, state.password);
+                    data = encrypted;
+                    isBinary = true;
+                    if (!flags.includes("p")) flags += "p";
+                } else {
+                    if (flags.includes("p")) flags = flags.replace(/p/g, "");
+                }
+
+                const savedId = await apiPost(state.id, data, isBinary);
+                if (!state.id) {
+                    state.id = savedId;
+                    updateTitle();
+                }
+
+                if (flags !== state.flags) {
+                    state.flags = flags;
+                    updateHash(state.flags, state.id);
+                }
+
+                state.content = text;
+                state.lastSavedContent = text;
+                state.lastSavedAt = new Date();
+                state.pendingSave = false;
+                updateStatus();
+            } catch (e) {
+                // 保存失败
+                statusSave.textContent = "" + e.message;
+                statusSave.className = "status error";
+            }
+        }
+
+        function startAutoSave() {
+            if (state.autoSaveTimer) clearInterval(state.autoSaveTimer);
+            state.autoSaveTimer = setInterval(() => {
+                if (state.isEditing) {
+                    const current = normalizeText(editor.value);
+                    if (current !== state.lastSavedContent) {
+                        state.pendingSave = true;
+                        updateStatus();
+                        doSave();
+                    }
+                }
+            }, CONFIG.AUTO_SAVE_INTERVAL);
+        }
+
+        // ==================== Dialog ====================
+        let dialogMode = "encrypt";
+
+        function showDialog(mode) {
+            dialogMode = mode;
+            dialogOverlay.classList.add("show");
+            dialogInput.value = state.password || "";
+            dialogInput.focus();
+            if (mode === "decrypt") {
+                dialogTitle.textContent = "解密";
+                btnDialogAction.textContent = "解密";
+            } else {
+                dialogTitle.textContent = "加密";
+                btnDialogAction.textContent = "加密";
+            }
+        }
+
+        function hideDialog() {
+            dialogOverlay.classList.remove("show");
+        }
+
+        // ==================== Event Handlers ====================
+        btnNew.addEventListener("click", () => {
+            state.id = genId();
+            state.flags = "";
+            state.content = "";
+            state.password = "";
+            state.lastSavedContent = "";
+            state.lastSavedAt = null;
+            state.pendingSave = false;
+            updateHash(state.flags, state.id);
+            editor.value = "";
+            updateTitle();
+            setMode(true);
+            updateStatus();
+        });
+
+        btnEdit.addEventListener("click", () => {
+            setMode(!state.isEditing);
+        });
+
+        btnWrap.addEventListener("click", () => {
+            toggleWrap();
+        });
+
+        btnPwd.addEventListener("click", () => {
+            if (hasPasswordFlag() && !state.password) {
+                showDialog("decrypt");
+            } else {
+                showDialog("encrypt");
+            }
+        });
+
+        btnSave.addEventListener("click", () => {
+            if (state.isEditing) {
+                state.content = normalizeText(editor.value);
+            }
+            doSave();
+        });
+
+        btnDialogClose.addEventListener("click", hideDialog);
+
+        btnDialogAction.addEventListener("click", async () => {
+            const pwd = dialogInput.value;
+            if (dialogMode === "decrypt") {
+                if (!pwd) return;
+                state.password = pwd;
+                hideDialog();
+                await loadPaste();
+            } else {
+                state.password = pwd;
+                hideDialog();
+                if (state.isEditing) state.content = normalizeText(editor.value);
+                await doSave();
+            }
+        });
+
+        dialogInput.addEventListener("keydown", e => {
+            if (e.key === "Enter") {
+                btnDialogAction.click();
+            }
+            if (e.key === "Escape") hideDialog();
+        });
+
+        editor.addEventListener("input", () => {
+            state.content = normalizeText(editor.value);
+            state.pendingSave = true;
+            updateStatus();
+        });
+
+        document.addEventListener("keydown", e => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === "s") {
+                    e.preventDefault();
+                    btnSave.click();
+                }
+                if (e.key === "e") {
+                    e.preventDefault();
+                    btnEdit.click();
+                }
+                if (e.key === "n") {
+                    e.preventDefault();
+                    btnNew.click();
+                }
+            }
+        });
+
+        window.addEventListener("hashchange", () => {
+            const parsed = parseHash();
+            if (parsed.id !== state.id || parsed.flags !== state.flags) {
+                state.id = parsed.id;
+                state.flags = parsed.flags;
+                loadPaste();
+            }
+        });
+
+        // ==================== Init ====================
+        function init() {
+            const parsed = parseHash();
+            state.id = parsed.id;
+            state.flags = parsed.flags;
+            updateWrapUI();
+
+            if (!state.id) {
+                state.id = genId();
+                state.flags = "";
+                updateHash(state.flags, state.id);
+                state.content = "";
+                state.lastSavedContent = "";
+                state.lastSavedAt = null;
+                state.pendingSave = false;
+                updateTitle();
+                setMode(true);
+                updateStatus();
+            } else {
+                updateTitle();
+                loadPaste();
+            }
+
+            startAutoSave();
+            startStatusTimer();
+        }
+
+        init();
+    </script>
+</body>
+</html>

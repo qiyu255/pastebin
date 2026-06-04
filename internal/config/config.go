@@ -79,6 +79,9 @@ func validate(c *model.Config) error {
 	if c.Log.MaxBackups <= 0 {
 		c.Log.MaxBackups = 10
 	}
+	if c.MaxConcurrentRequests <= 0 {
+		c.MaxConcurrentRequests = 0 // 0 means unlimited
+	}
 	return nil
 }
 
